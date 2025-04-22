@@ -1,0 +1,6 @@
+[submodule "upstream/quickjs"]
+	path = upstream/quickjs
+	url = https://github.com/bellard/quickjs.git
+[submodule "upstream/quickjs-ng"]
+	path = upstream/quickjs-ng
+	url = https://github.com/quickjs-ng/quickjs.git
