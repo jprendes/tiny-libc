@@ -22,6 +22,7 @@
 
 
 #include <pthread.h>
+#include "arch.h"
 
 typedef __SIZE_TYPE__ size_t;
 typedef __UINTPTR_TYPE__ uintptr_t;
@@ -158,40 +159,42 @@ static inline struct large_object* get_large_object(void *ptr) {
 static struct freelist *small_object_freelists[SMALL_OBJECT_CHUNK_KINDS];
 static struct large_object *large_objects;
 
-__attribute__((aligned(PAGE_SIZE)))
-uint8_t heap[100 * 1000 * 1000 + PAGE_SIZE];
-
-static size_t walloc_heap_size;
+static void *heap_base = 0;
+static void *heap_end = 0;
+static size_t walloc_heap_size = 0;
 
 static struct page*
 allocate_pages(size_t payload_size, size_t *n_allocated) {
-  size_t needed = payload_size + PAGE_HEADER_SIZE;
-  size_t heap_size = align((uintptr_t)heap + sizeof(heap), PAGE_SIZE);
-  uintptr_t base = heap_size;
-  uintptr_t preallocated = 0, grow = 0;
-
-  if (!walloc_heap_size) {
-    // We are allocating the initial pages, if any.  We skip the first 64 kB,
-    // then take any additional space up to the memory size.
-    uintptr_t heap_base = align((uintptr_t)heap, PAGE_SIZE);
-    preallocated = heap_size - heap_base; // Preallocated pages.
-    walloc_heap_size = preallocated;
-    base -= preallocated;
+  if (heap_base == 0) {
+    heap_base = heap_end = (void*)align((uintptr_t)brk(NULL), PAGE_SIZE);
+    if (heap_base == NULL) {
+      return NULL;
+    }
   }
 
-  if (preallocated < needed) {
+  size_t needed = payload_size + PAGE_HEADER_SIZE;
+  void *walloc_heap_end = heap_base + walloc_heap_size;
+  void *base = walloc_heap_end;
+  size_t preallocated = heap_end - walloc_heap_end;
+  size_t grow = 0;
+
+  if (heap_end < base + needed) {
     // Always grow the walloc heap at least by 50%.
-    grow = align(max(walloc_heap_size / 2, needed - preallocated),
-                 PAGE_SIZE);
+    grow = align(max(walloc_heap_size / 2, needed), PAGE_SIZE);
     ASSERT(grow);
-    //if (__builtin_wasm_memory_grow(0, grow >> PAGE_SIZE_LOG_2) == -1) {
+    void *req_heap_end = heap_end + grow;
+    heap_end = brk(req_heap_end);
+    if (heap_end < req_heap_end) {
       return NULL;
-    //}
+    }
+    walloc_heap_size += grow;
+  } else {
+    grow = align(needed, PAGE_SIZE);
     walloc_heap_size += grow;
   }
   
   struct page *ret = (struct page *)base;
-  size_t size = grow + preallocated;
+  size_t size = grow;
   ASSERT(size);
   ASSERT_ALIGNED(size, PAGE_SIZE);
   *n_allocated = size / PAGE_SIZE;

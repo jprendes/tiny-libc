@@ -55,3 +55,36 @@ int futex_wake(uint32_t *uaddr, size_t nwake) {
     syscall4(SYS_futex, (int64_t)uaddr, FUTEX_WAKE | FUTEX_PRIVATE, nwake, 0);
     return 0;
 }
+
+#ifndef STATIC_ALLOCATION
+
+// use the kernel to allocate heap memory
+
+const uint64_t SYS_brk = 12;
+
+void *brk(void *addr) {
+    return (void *)syscall4(SYS_brk, (int64_t)addr, 0, 0, 0);
+}
+
+#else
+
+// use a predefined static buffer for heap memory
+
+#define PAGE_SIZE 65536
+__attribute__((aligned(PAGE_SIZE)))
+static uint8_t heap[32 * 1024 * 1024];
+static uint8_t *heap_end = heap;
+
+void *brk(void *addr) {
+    if (addr == (void*)0) {
+        return heap_end;
+    } else if (addr < (void*)heap) {
+        heap_end = heap;
+        return heap_end;
+    } else { // addr > heap
+        heap_end = heap + sizeof(heap);
+        return heap_end;
+    }
+}
+
+#endif

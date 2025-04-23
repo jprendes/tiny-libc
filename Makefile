@@ -1,5 +1,11 @@
 CC ?= clang
-OPT_FLAGS := -Os -flto=auto
+CFLAGS := \
+	-Os \
+	-flto=auto \
+	-g0 \
+	-fno-pie \
+	-Wl,-no-pie \
+	-Wl,--strip-all
 
 .PHONY: all build build-ng
 
@@ -24,7 +30,7 @@ build:
 	    -DCONFIG_VERSION=\"2024-02-14\" \
 	    -nostdinc \
 	    -nostdlib \
-	    ${OPT_FLAGS} \
+	    ${CFLAGS} \
 	    -fno-stack-protector \
 	    -Wno-shift-op-parentheses \
 	    -Wno-implicit-const-int-float-conversion \
@@ -48,7 +54,7 @@ build-ng:
 	    ./libc/src/pthread/*.c \
 	    -nostdinc \
 	    -nostdlib \
-	    ${OPT_FLAGS} \
+	    ${CFLAGS} \
 	    -fno-stack-protector \
 	    -Wno-shift-op-parentheses \
 	    -Wno-implicit-const-int-float-conversion \
