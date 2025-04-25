@@ -159,39 +159,20 @@ static inline struct large_object* get_large_object(void *ptr) {
 static struct freelist *small_object_freelists[SMALL_OBJECT_CHUNK_KINDS];
 static struct large_object *large_objects;
 
-static void *heap_base = 0;
-static void *heap_end = 0;
 static size_t walloc_heap_size = 0;
 
 static struct page*
 allocate_pages(size_t payload_size, size_t *n_allocated) {
-  if (heap_base == 0) {
-    heap_base = heap_end = (void*)align((uintptr_t)brk(NULL), PAGE_SIZE);
-    if (heap_base == NULL) {
-      return NULL;
-    }
-  }
-
   size_t needed = payload_size + PAGE_HEADER_SIZE;
-  void *walloc_heap_end = heap_base + walloc_heap_size;
-  void *base = walloc_heap_end;
-  size_t preallocated = heap_end - walloc_heap_end;
-  size_t grow = 0;
 
-  if (heap_end < base + needed) {
-    // Always grow the walloc heap at least by 50%.
-    grow = align(max(walloc_heap_size / 2, needed), PAGE_SIZE);
-    ASSERT(grow);
-    void *req_heap_end = heap_end + grow;
-    heap_end = brk(req_heap_end);
-    if (heap_end < req_heap_end) {
-      return NULL;
-    }
-    walloc_heap_size += grow;
-  } else {
-    grow = align(needed, PAGE_SIZE);
-    walloc_heap_size += grow;
+  // Always grow the walloc heap at least by 50%.
+  size_t grow = align(max(walloc_heap_size / 2, needed), PAGE_SIZE);
+  ASSERT(grow);
+  void *base = __page_alloc(PAGE_SIZE_LOG_2, grow >> PAGE_SIZE_LOG_2);
+  if (!base) {
+    return NULL;
   }
+  walloc_heap_size += grow;
   
   struct page *ret = (struct page *)base;
   size_t size = grow;
@@ -445,7 +426,7 @@ allocate_large(size_t size) {
   return obj ? get_large_object_payload(obj) : NULL;
 }
 
-pthread_mutex_t walloc_mutex = PTHREAD_MUTEX_INITIALIZER;
+static pthread_mutex_t walloc_mutex = PTHREAD_MUTEX_INITIALIZER;
 
 void*
 malloc(size_t size) {

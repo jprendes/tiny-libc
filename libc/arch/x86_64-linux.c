@@ -26,6 +26,13 @@ ssize_t write(int fd, const void *buf, size_t count) {
     return ret < 0 ? -1 : ret;
 }
 
+const uint64_t SYS_read = 0;
+
+ssize_t read(int fd, void *buf, size_t count) {
+    int64_t ret = syscall4(SYS_read, fd, (int64_t)buf, count, 0);
+    return ret < 0 ? -1 : ret;
+}
+
 const uint64_t SYS_gettimeofday = 96;
 
 int64_t unixtime_usec() {
@@ -62,7 +69,7 @@ int futex_wake(uint32_t *uaddr, size_t nwake) {
 
 const uint64_t SYS_brk = 12;
 
-void *brk(void *addr) {
+static inline void *brk(void *addr) {
     return (void *)syscall4(SYS_brk, (int64_t)addr, 0, 0, 0);
 }
 
@@ -70,21 +77,47 @@ void *brk(void *addr) {
 
 // use a predefined static buffer for heap memory
 
-#define PAGE_SIZE 65536
-__attribute__((aligned(PAGE_SIZE)))
-static uint8_t heap[32 * 1024 * 1024];
-static uint8_t *heap_end = heap;
+#ifndef HEAP_SIZE
+#define HEAP_SIZE (32 * 1024 * 1024)
+#endif
 
-void *brk(void *addr) {
-    if (addr == (void*)0) {
-        return heap_end;
-    } else if (addr < (void*)heap) {
-        heap_end = heap;
-        return heap_end;
-    } else { // addr > heap
-        heap_end = heap + sizeof(heap);
-        return heap_end;
+#define clamp(x, min, max) ((x) < (min) ? (min) : ((x) > (max) ? (max) : (x)))
+
+static inline void *brk(void *addr) {
+    static uint8_t heap[HEAP_SIZE];
+    static void *current = heap;
+    if (addr) {
+        current = clamp(addr, (void*)heap, (void*)heap + sizeof(heap));
     }
+    return current;
 }
 
 #endif
+
+static void *heap_base = 0;
+static void *heap_end = 0;
+static void *brk_end = 0;
+
+void *__page_alloc(size_t page_n_bits, size_t n_pages) {
+    if (!heap_base) {
+        heap_base = heap_end = brk_end = brk(0);
+        if (!heap_base) {
+            return 0;
+        }
+    }
+
+    size_t page_size = 1 << page_n_bits;
+
+    // align up to page_size
+    void *ptr = heap_end + ( -(intptr_t)heap_end & (page_size-1) );
+        
+    heap_end = ptr + page_size * n_pages;
+    if (heap_end > brk_end) {
+        brk_end = brk(heap_end);
+        if (brk_end < heap_end) {
+            return 0;
+        }
+    }
+
+    return ptr;
+}
