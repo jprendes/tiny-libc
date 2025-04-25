@@ -12,35 +12,28 @@ struct FILE {
     pthread_mutex_t mutex;
     int out_buffer_pos;
     int out_buffer_size;
-    char *out_buffer;
+    char out_buffer[0];
 };
 
-static char STDOUT_OUT_BUFFER[1024];
-static char STDERR_OUT_BUFFER[1024];
-
-static FILE STDOUT = {
-    .fd = 1,
-    .mutex = PTHREAD_MUTEX_INITIALIZER,
-    .out_buffer_pos = 0,
-    .out_buffer_size = sizeof(STDOUT_OUT_BUFFER),
-    .out_buffer = STDOUT_OUT_BUFFER,
-};
-
-static FILE STDERR = {
-    .fd = 2,
-    .mutex = PTHREAD_MUTEX_INITIALIZER,
-    .out_buffer_pos = 0,
-    .out_buffer_size = sizeof(STDOUT_OUT_BUFFER),
-    .out_buffer = STDOUT_OUT_BUFFER,
-};
-
-FILE* __stdout() {
-    return &STDOUT;
+#define MAKE_FILE(name, fd_num, buffer_size) \
+FILE *name() { \
+    static struct { \
+        FILE f; \
+        char buffer[buffer_size]; \
+    } THE_FILE = { \
+        .f = { \
+            .fd = fd_num, \
+            .mutex = PTHREAD_MUTEX_INITIALIZER, \
+            .out_buffer_pos = 0, \
+            .out_buffer_size = buffer_size, \
+        } \
+    }; \
+    return &THE_FILE.f; \
 }
 
-FILE* __stderr() {
-    return &STDERR;
-}
+MAKE_FILE(__stdin, 0, 1024)
+MAKE_FILE(__stdout, 1, 1024)
+MAKE_FILE(__stderr, 2, 1024)
 
 int fflush_unlocked(FILE *fp) {
     if (fp == NULL) return EOF;
@@ -108,7 +101,7 @@ int fputs(const char *s, FILE * fp) {
 int printf(const char* fmt, ...) {
     va_list va;
     va_start(va, fmt);
-    int res = vfprintf(&STDOUT, fmt, va);
+    int res = vfprintf(__stdout(), fmt, va);
     va_end(va);
     return res;
 }
@@ -149,7 +142,7 @@ int vsnprintf(char* buffer, size_t count, const char* fmt, va_list va) {
 }
 
 int puts(const char *s) {
-    return fputs(s, &STDOUT);
+    return fputs(s, __stdout());
 }
 
 size_t fwrite_unlocked(const void* buffer, size_t size, size_t count, FILE* fp) {
