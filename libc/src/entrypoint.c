@@ -48,9 +48,14 @@ static void initializer(void) {
     }
 }
 
+void *__stack_chk_guard = (void *)0xdeadbeef;
+void __stack_chk_fail(void) {
+    puts("stack overflow detected");
+    abort();
+}
+
 __attribute__((force_align_arg_pointer))
 void _start() {
-    atexit(finalizer);
     initializer();
     exit(main());
 }
@@ -69,6 +74,7 @@ void exit(int status) {
         free(head);
         head = next;
     }
+    finalizer();
     _Exit(status);
 }
 

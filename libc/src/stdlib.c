@@ -25,7 +25,7 @@ void *realloc(void *ptr, size_t new_size) {
 void *calloc(size_t num, size_t size) {
     volatile size_t len = num * size;
     void *ptr = malloc(len);
-    __builtin_memset(ptr, '\0', num * size);
+    memset(ptr, '\0', num * size);
     return ptr;
 }
 
