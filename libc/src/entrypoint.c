@@ -2,6 +2,7 @@
 #include <stdio.h>
 #include <stdint.h>
 #include <stdatomic.h>
+#include <pthread.h>
 #include "arch.h"
 
 int main(void);
@@ -66,15 +67,16 @@ static struct at_exit_entry {
     struct at_exit_entry *next;
 } *at_exit_list = NULL;
 
-void exit(int status) {
+pthread_mutex_t at_exit_mutex = PTHREAD_MUTEX_INITIALIZER;
+
+__attribute__((noreturn)) void exit(int status) {
     // no need to deallocate the at_exit_list, since we are exiting anyways
-    intptr_t *atomic_at_exit_list = (intptr_t*)&at_exit_list;
-    struct at_exit_entry *head = (struct at_exit_entry *)atomic_load(atomic_at_exit_list);
-    while (head) {
-        struct at_exit_entry *next = head->next;
-        head->func();
-        free(head);
-        head = next;
+    pthread_mutex_lock(&at_exit_mutex);
+    while (at_exit_list) {
+        struct at_exit_entry *next = at_exit_list->next;
+        at_exit_list->func();
+        free(at_exit_list);
+        at_exit_list = next;
     }
     finalizer();
     _Exit(status);
@@ -82,18 +84,12 @@ void exit(int status) {
 
 // register a function to be called at exit
 int atexit(void (*func)(void)) {
-    intptr_t *atomic_at_exit_list = (intptr_t*)&at_exit_list;
     struct at_exit_entry *entry = malloc(sizeof(struct at_exit_entry));
     if (!entry) return -1;
     entry->func = func;
-    for (;;) {
-        // atromically add the entry to the list
-        // if the list has changed, retry
-        struct at_exit_entry *head = (struct at_exit_entry *)atomic_load(atomic_at_exit_list);
-        entry->next = head;
-        if (atomic_compare_exchange_strong(atomic_at_exit_list, (intptr_t*)&head, (intptr_t)entry)) {
-            break;
-        }
-    }
+    pthread_mutex_lock(&at_exit_mutex);
+    entry->next = at_exit_list;
+    at_exit_list = entry;
+    pthread_mutex_unlock(&at_exit_mutex);
     return 0;
 }
