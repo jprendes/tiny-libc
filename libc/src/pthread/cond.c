@@ -7,11 +7,13 @@
 // based on https://doc.rust-lang.org/src/std/sys/sync/condvar/futex.rs.html
 
 int pthread_cond_init(pthread_cond_t *cond, const void *attr) {
+    (void)attr;
     atomic_store(cond, PTHREAD_COND_INITIALIZER);
     return 0;
 }
 
 int pthread_cond_destroy(pthread_cond_t *cond) {
+    (void)cond;
     return 0;
 }
 
@@ -57,14 +59,17 @@ int pthread_cond_broadcast(pthread_cond_t *cond) {
 }
 
 int pthread_condattr_init(pthread_condattr_t *attr) {
-    attr = 0;
+    *attr = 0;
     return 0;
 }
 
 int pthread_condattr_destroy(pthread_condattr_t *attr) {
+    (void)attr;
     return 0;
 }
 
 int pthread_condattr_setclock(pthread_condattr_t *attr, clockid_t clock_id) {
+    (void)attr;
+    (void)clock_id;
     return 0;
 }

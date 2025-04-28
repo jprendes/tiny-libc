@@ -17,11 +17,13 @@ uint32_t atomic_compare_swap(pthread_mutex_t *m, uint32_t expected, uint32_t des
 }
 
 int pthread_mutex_init(pthread_mutex_t *mutex, const void *attr) {
-  atomic_store(mutex, UNLOCKED);
-  return 0;
+    (void)attr;
+    atomic_store(mutex, UNLOCKED);
+    return 0;
 }
 
 int pthread_mutex_destroy(pthread_mutex_t *mutex) {
+    (void)mutex;
     return 0;
 }
 

@@ -12,11 +12,11 @@ struct FILE {
     pthread_mutex_t mutex;
     int out_buffer_pos;
     int out_buffer_size;
-    char out_buffer[0];
+    char out_buffer[1];
 };
 
 #define MAKE_FILE(name, fd_num, buffer_size) \
-FILE *name() { \
+FILE *name(void) { \
     static struct { \
         FILE f; \
         char buffer[buffer_size]; \
@@ -123,6 +123,8 @@ int snprintf(char* buffer, size_t count, const char* fmt, ...) {
 }
 
 static inline void _out_file(char character, void* buffer, size_t idx, size_t maxlen) {
+    (void)idx;
+    (void)maxlen;
     fputc_unlocked(character, (FILE*)buffer);
 }
 

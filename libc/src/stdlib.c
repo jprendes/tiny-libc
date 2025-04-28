@@ -29,6 +29,6 @@ void *calloc(size_t num, size_t size) {
     return ptr;
 }
 
-void abort() {
+void abort(void) {
     exit(137);
 }

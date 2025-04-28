@@ -38,7 +38,7 @@ uint128_t __udivti3(uint128_t a, uint128_t b) {
 
 __attribute__((used))
 uint128_t __umodti3(uint128_t a, uint128_t b) {
-  uint128_t r;
+  uint128_t r = 0;
   __udivmodti4(a, b, &r);
   return r;
 }

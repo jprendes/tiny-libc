@@ -81,7 +81,6 @@ int atoi(const char *p) {
 }
 
 char *strcpy(char *dest, const char *src) {
-    if (dest == NULL || src == NULL) return dest;
     char *d = dest;
     while((*dest++=*src++) != '\0');
     return d;

@@ -4,9 +4,9 @@
 #include <stdatomic.h>
 #include "arch.h"
 
-int main();
+int main(void);
 
-typedef void (*fn)();
+typedef void (*fn)(void);
 
 // the linker defines these symbols for us
 extern fn __attribute__((weak)) __preinit_array_start[];
@@ -55,7 +55,7 @@ void __stack_chk_fail(void) {
 }
 
 __attribute__((force_align_arg_pointer))
-void _start() {
+void _start(void) {
     initializer();
     exit(main());
 }
@@ -67,7 +67,9 @@ static struct at_exit_entry {
 } *at_exit_list = NULL;
 
 void exit(int status) {
-    struct at_exit_entry *head = (struct at_exit_entry *)atomic_load((intptr_t*)&at_exit_list);
+    // no need to deallocate the at_exit_list, since we are exiting anyways
+    intptr_t *atomic_at_exit_list = (intptr_t*)&at_exit_list;
+    struct at_exit_entry *head = (struct at_exit_entry *)atomic_load(atomic_at_exit_list);
     while (head) {
         struct at_exit_entry *next = head->next;
         head->func();
@@ -80,15 +82,16 @@ void exit(int status) {
 
 // register a function to be called at exit
 int atexit(void (*func)(void)) {
+    intptr_t *atomic_at_exit_list = (intptr_t*)&at_exit_list;
     struct at_exit_entry *entry = malloc(sizeof(struct at_exit_entry));
     if (!entry) return -1;
     entry->func = func;
     for (;;) {
         // atromically add the entry to the list
         // if the list has changed, retry
-        struct at_exit_entry *head = (struct at_exit_entry *)atomic_load((intptr_t*)&at_exit_list);
+        struct at_exit_entry *head = (struct at_exit_entry *)atomic_load(atomic_at_exit_list);
         entry->next = head;
-        if (atomic_compare_exchange_strong((intptr_t*)&at_exit_list, (intptr_t*)&head, (intptr_t)entry)) {
+        if (atomic_compare_exchange_strong(atomic_at_exit_list, (intptr_t*)&head, (intptr_t)entry)) {
             break;
         }
     }

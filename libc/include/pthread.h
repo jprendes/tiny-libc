@@ -14,18 +14,29 @@ static inline int pthread_attr_init(pthread_attr_t *attr) {
     return 0;
 }
 static inline int pthread_attr_destroy(pthread_attr_t *attr) {
+    (void)attr;
     return 0;
 }
 static inline int pthread_attr_setstacksize(pthread_attr_t *attr, long size) {
+    (void)attr;
+    (void)size;
     return 0;
 }
 static inline int pthread_attr_setdetachstate(pthread_attr_t *attr, int state) {
+    (void)attr;
+    (void)state;
     return 0;
 }
 static inline int pthread_create(pthread_t *thread, const pthread_attr_t *attr, void *(*start_routine)(void *), void *arg) {
+    (void)thread;
+    (void)attr;
+    (void)start_routine;
+    (void)arg;
     return EPERM;
 }
 static inline int pthread_join(pthread_t thread, void **retval) {
+    (void)thread;
+    (void)retval;
     return EINVAL;
 }
 

@@ -35,7 +35,7 @@ ssize_t __read(int fd, void *buf, size_t count) {
 
 const uint64_t SYS_gettimeofday = 96;
 
-int64_t __unixtime_usec() {
+int64_t __unixtime_usec(void) {
     int64_t ts32[2];
     syscall4(SYS_gettimeofday, (int64_t)ts32, 0, 0, 0);
     return ts32[0] * 1000000 + ts32[1];
@@ -94,9 +94,9 @@ static inline void *brk(void *addr) {
 
 #endif
 
-static void *heap_base = 0;
-static void *heap_end = 0;
-static void *brk_end = 0;
+static char *heap_base = 0;
+static char *heap_end = 0;
+static char *brk_end = 0;
 
 void *__page_alloc(size_t page_n_bits, size_t n_pages) {
     if (!heap_base) {
@@ -109,7 +109,7 @@ void *__page_alloc(size_t page_n_bits, size_t n_pages) {
     size_t page_size = 1 << page_n_bits;
 
     // align up to page_size
-    void *ptr = heap_end + ( -(intptr_t)heap_end & (page_size-1) );
+    char *ptr = heap_end + ( -(intptr_t)heap_end & (page_size-1) );
         
     heap_end = ptr + page_size * n_pages;
     if (heap_end > brk_end) {

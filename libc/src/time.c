@@ -4,6 +4,7 @@
 #include "arch.h"
 
 int clock_gettime(clockid_t clk_id, struct timespec *tp) {
+    (void)clk_id;
     struct timeval tv;
     gettimeofday(&tv, NULL);
     tp->tv_sec = tv.tv_sec;
@@ -12,6 +13,7 @@ int clock_gettime(clockid_t clk_id, struct timespec *tp) {
 }
 
 int gettimeofday(struct timeval *tv, void *tz) {
+    (void)tz;
     int64_t ts = __unixtime_usec();
     tv->tv_sec = ts / 1000000;
     tv->tv_usec = ts % 1000000;

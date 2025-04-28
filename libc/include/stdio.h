@@ -11,10 +11,10 @@ struct FILE;
 
 typedef struct FILE FILE;
 
-FILE *__stdout();
+FILE *__stdout(void);
 #define stdout (__stdout())
 
-FILE *__stderr();
+FILE *__stderr(void);
 #define stderr (__stderr())
 
 int fflush(FILE *fp);

@@ -149,7 +149,7 @@ struct large_object {
 
 #define LARGE_OBJECT_HEADER_SIZE (sizeof (struct large_object))
 
-static inline void* get_large_object_payload(struct large_object *obj) {
+static inline char* get_large_object_payload(struct large_object *obj) {
   return ((char*) obj) + LARGE_OBJECT_HEADER_SIZE;
 }
 static inline struct large_object* get_large_object(void *ptr) {
