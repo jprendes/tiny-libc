@@ -32,7 +32,7 @@ int pthread_cond_timedwait(pthread_cond_t *cond, pthread_mutex_t *mutex, const s
 
     // Wait, but only if there hasn't been any
     // notification since we unlocked the mutex.
-    if (futex_wait_abs(cond, value, abstime) == ETIMEDOUT) {
+    if (__wait_abs(cond, value, abstime) == ETIMEDOUT) {
         return ETIMEDOUT;
     }
 
@@ -43,7 +43,7 @@ int pthread_cond_timedwait(pthread_cond_t *cond, pthread_mutex_t *mutex, const s
 int pthread_cond_signal(pthread_cond_t *cond) {
     uint32_t old = atomic_fetch_or(cond, 1);
     if ((old & 1) == 0) {
-        futex_wake((uint32_t*)cond, 1);
+        __wake((uint32_t*)cond, 1);
     }
     return 0;
 }
@@ -51,7 +51,7 @@ int pthread_cond_signal(pthread_cond_t *cond) {
 int pthread_cond_broadcast(pthread_cond_t *cond) {
     uint32_t old = atomic_fetch_or(cond, 1);
     if ((old & 1) == 0) {
-        futex_wake((uint32_t*)cond, INT32_MAX);
+        __wake((uint32_t*)cond, INT32_MAX);
     }
     return 0;
 }

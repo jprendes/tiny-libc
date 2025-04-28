@@ -17,12 +17,12 @@ int pthread_once(pthread_once_t *once_ctrl, void (*init_routine)(void)) {
             // The first thread to reach here will run the init_routine.
             init_routine();
             atomic_store(once_ctrl, INITIALIZED);
-            futex_wake((uint32_t*)once_ctrl, INT32_MAX);
+            __wake((uint32_t*)once_ctrl, INT32_MAX);
             return 0;
         case PENDING:
             // Another thread is already running the init_routine.
             // Wait for it to finish.
-            futex_wait((uint32_t*)once_ctrl, PENDING, 0);
+            __wait((uint32_t*)once_ctrl, PENDING, 0);
             return 0;
         case INITIALIZED:
             // The init_routine has already been run.

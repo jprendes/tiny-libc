@@ -42,7 +42,7 @@ int pthread_mutex_timedlock(pthread_mutex_t *mutex, const struct timespec *absti
           // we're the first waiter, set m to LOCKED_WAIT
           // XXX: the comparison in this line is extremely confusing
           atomic_compare_swap(mutex, LOCKED_NO_WAIT, LOCKED_WAIT) != UNLOCKED) {
-        if (futex_wait_abs(mutex, LOCKED_WAIT, abstime) == ETIMEDOUT) {
+        if (__wait_abs(mutex, LOCKED_WAIT, abstime) == ETIMEDOUT) {
             return ETIMEDOUT;
         }
       }
@@ -74,7 +74,7 @@ int pthread_mutex_unlock(pthread_mutex_t *mutex) {
     // released the lock)
     if (atomic_fetch_sub(mutex, 1) != LOCKED_NO_WAIT) {
         atomic_store(mutex, UNLOCKED);
-        futex_wake((uint32_t*)mutex, 1);
+        __wake((uint32_t*)mutex, 1);
     }
     return 0;
 }
