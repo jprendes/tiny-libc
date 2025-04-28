@@ -1,0 +1,19 @@
+[workspace]
+resolver = "2"
+members = [
+    "crates/tiny-libc-build",
+    "crates/tiny-libc-macros",
+    "crates/tiny-libc",
+    "crates/demo",
+]
+
+[workspace.dependencies]
+tiny-libc = { path = "crates/tiny-libc" }
+tiny-libc-build = { path = "crates/tiny-libc-build" }
+tiny-libc-macros = { path = "crates/tiny-libc-macros" }
+
+[profile.release]
+panic = "abort"
+
+[profile.dev]
+panic = "abort"
