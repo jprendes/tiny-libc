@@ -10,6 +10,6 @@ ssize_t write(int fd, const void *buf, size_t count) {
     return __write(fd, buf, count);
 }
 
-int putchar(int ch) {
-    return fputc(ch, stdout);
+ssize_t read(int fd, void *buf, size_t count) {
+    return __read(fd, buf, count);
 }

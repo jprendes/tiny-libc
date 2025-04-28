@@ -7,94 +7,132 @@
 
 #include "printf.h"
 
-struct FILE {
-    int fd;
-    pthread_mutex_t mutex;
-    int out_buffer_pos;
-    int out_buffer_size;
-    char out_buffer[1];
+struct range {
+    char *start;
+    char *end;
 };
 
-#define MAKE_FILE(name, fd_num, buffer_size) \
+struct file_buffer {
+    struct range allocated;
+    struct range used;
+    pthread_mutex_t mutex;
+};
+
+struct FILE {
+    int fd;
+    struct file_buffer in;
+    struct file_buffer out;
+};
+
+#define MAKE_FILE(name, fd_num, in_buffer_size, out_buffer_size) \
 FILE *name(void) { \
-    static struct { \
-        FILE f; \
-        char buffer[buffer_size]; \
-    } THE_FILE = { \
-        .f = { \
-            .fd = fd_num, \
+    static char name##_out_buffer[out_buffer_size] = {0}; \
+    static char name##_in_buffer[in_buffer_size] = {0}; \
+    static struct FILE name##_file = { \
+        .fd = fd_num, \
+        .in = { \
+            .allocated = { \
+                .start = name##_in_buffer, \
+                .end = name##_in_buffer + sizeof(name##_in_buffer), \
+            }, \
+            .used = { \
+                .start = name##_in_buffer, \
+                .end = name##_in_buffer, \
+            }, \
             .mutex = PTHREAD_MUTEX_INITIALIZER, \
-            .out_buffer_pos = 0, \
-            .out_buffer_size = buffer_size, \
-        } \
+        }, \
+        .out = { \
+            .allocated = { \
+                .start = name##_out_buffer, \
+                .end = name##_out_buffer + sizeof(name##_out_buffer), \
+            }, \
+            .used = { \
+                .start = name##_out_buffer, \
+                .end = name##_out_buffer, \
+            }, \
+            .mutex = PTHREAD_MUTEX_INITIALIZER, \
+        }, \
     }; \
-    return &THE_FILE.f; \
+    return &name##_file; \
 }
 
-MAKE_FILE(__stdin, 0, 1024)
-MAKE_FILE(__stdout, 1, 1024)
-MAKE_FILE(__stderr, 2, 1024)
+MAKE_FILE(__stdin, 0, 1024, 1024)
+MAKE_FILE(__stdout, 1, 1024, 1024)
+MAKE_FILE(__stderr, 2, 1024, 1024)
 
-int fflush_unlocked(FILE *fp) {
+static inline int fflush_unlocked(FILE *fp) {
     if (fp == NULL) return EOF;
     int fd = fp->fd;
-    char *buf = fp->out_buffer;
-    int n = fp->out_buffer_pos;
-    int k = 0;
-    while (k < n) {
-        int r = write(fd, buf + k, n - k);
+    struct range *used = &fp->out.used;
+    while (used->start < used->end) {
+        int r = write(fd, used->start, used->end - used->start);
         if (r < 0) {
             return EOF;
         }
-        k += r;
+        used->start += r;
     }
-    fp->out_buffer_pos = 0;
+    used->start = used->end = fp->out.allocated.start;
     return 0;
 }
 
 int fflush(FILE *fp) {
-    pthread_mutex_lock(&fp->mutex);
+    pthread_mutex_lock(&fp->out.mutex);
     int ret = fflush_unlocked(fp);
-    pthread_mutex_unlock(&fp->mutex);
+    pthread_mutex_unlock(&fp->out.mutex);
     return ret;
 }
 
-int fputc_unlocked(int c, FILE *fp) {
-    if (fp->out_buffer_pos >= fp->out_buffer_size) {
-        // this should not happen, but just in case flush the buffer
-        if (fflush_unlocked(fp) == EOF) return EOF;
+static inline size_t fputbuf_unlocked(const char *buf, size_t n, FILE *fp) {
+    if (fp->out.used.end >= fp->out.allocated.end) {
+        if (fflush_unlocked(fp) == EOF) return 0;
     }
-    fp->out_buffer[fp->out_buffer_pos++] = c;
-    if (c == '\n' || fp->out_buffer_pos >= fp->out_buffer_size) {
-        if (fflush_unlocked(fp) == EOF) return EOF;
+    for (size_t i = 0; i < n; i++) {
+        char c = *buf++;
+        *fp->out.used.end++ = c;
+        if (c == '\n' || fp->out.used.end >= fp->out.allocated.end) {
+            if (fflush_unlocked(fp) == EOF) return i + 1;
+        }
     }
-    return c;
+    return n;
+}
+
+static inline size_t fgetbuf_unlocked(char *buf, size_t n, FILE *fp) {
+    struct range *used = &fp->in.used;
+    if (used->start == used->end) {
+        used->start = used->end = fp->in.allocated.start;
+        ssize_t r = read(fp->fd, used->start, fp->in.allocated.end - used->end);
+        if (r <= 0) return 0;
+        used->end += r;
+    }
+    for (size_t i = 0; i < n; i++) {
+        char c = *used->start++;
+        *buf++ = c;
+        if (c == '\n' || used->start == used->end) {
+            return i + 1;
+        }
+    }
+    return n;
 }
 
 int fputc(int c, FILE *fp) {
-    pthread_mutex_lock(&fp->mutex);
-    int ret = fputc_unlocked(c, fp);
-    pthread_mutex_unlock(&fp->mutex);
-    return ret;
+    pthread_mutex_lock(&fp->out.mutex);
+    char cc = (char)c;
+    if (fputbuf_unlocked(&cc, 1, fp) == 0) return EOF;
+    pthread_mutex_unlock(&fp->out.mutex);
+    return (uint8_t)cc;
 }
 
-int fputs_unlocked(const char *s, FILE * fp) {
-    size_t i = 0;
-    while (s[i] != '\0') {
-        if (fputc_unlocked(s[i++], fp) == EOF) {
-            return EOF;
-        }
-    }
-    if (fputc_unlocked('\n', fp) == EOF) {
-        return EOF;
-    }
-    return i + 1;
+static inline int fputs_unlocked(const char *s, FILE * fp) {
+    size_t n = strlen(s);
+    if (fputbuf_unlocked((char*)s, n, fp) == 0) return EOF;
+    if (fputbuf_unlocked("\n", 1, fp) == 0) return EOF;
+    return n + 1;
 }
 
 int fputs(const char *s, FILE * fp) {
-    pthread_mutex_lock(&fp->mutex);
+    pthread_mutex_lock(&fp->out.mutex);
     int ret = fputs_unlocked(s, fp);
-    pthread_mutex_unlock(&fp->mutex);
+    pthread_mutex_unlock(&fp->out.mutex);
     return ret;
 }
 
@@ -125,13 +163,13 @@ int snprintf(char* buffer, size_t count, const char* fmt, ...) {
 static inline void _out_file(char character, void* buffer, size_t idx, size_t maxlen) {
     (void)idx;
     (void)maxlen;
-    fputc_unlocked(character, (FILE*)buffer);
+    fputbuf_unlocked(&character, 1, (FILE*)buffer);
 }
 
 int vfprintf(FILE * fp, const char* fmt, va_list va) {
-    pthread_mutex_lock(&fp->mutex);
+    pthread_mutex_lock(&fp->out.mutex);
     int ret = _vsnprintf(_out_file, (char*)fp, (size_t)-1, fmt, va);
-    pthread_mutex_unlock(&fp->mutex);
+    pthread_mutex_unlock(&fp->out.mutex);
     return ret;
 }
 
@@ -147,20 +185,54 @@ int puts(const char *s) {
     return fputs(s, __stdout());
 }
 
-size_t fwrite_unlocked(const void* buffer, size_t size, size_t count, FILE* fp) {
-    char * buf = (char*)buffer;
-    size_t total = size * count;
-    size_t written = 0;
-    while (written < total) {
-        if (fputc_unlocked(buf[written], fp) == EOF) return written;
-        written++;
-    }
-    return written;
+static inline size_t fwrite_unlocked(const void* buffer, size_t size, size_t count, FILE* fp) {
+    size_t n = fputbuf_unlocked((char*)buffer, size * count, fp);
+    return n / size;
 }
 
 size_t fwrite(const void* buffer, size_t size, size_t count, FILE* fp) {
-    pthread_mutex_lock(&fp->mutex);
+    pthread_mutex_lock(&fp->out.mutex);
     size_t ret = fwrite_unlocked(buffer, size, count, fp);
-    pthread_mutex_unlock(&fp->mutex);
+    pthread_mutex_unlock(&fp->out.mutex);
     return ret;
+}
+
+static inline int fgetc_unlocked(FILE* fp) {
+    char c = 0;
+    if (fgetbuf_unlocked(&c, 1, fp) == 0) return EOF;
+    return (uint8_t)c;
+}
+
+int fgetc(FILE* fp) {
+    pthread_mutex_lock(&fp->in.mutex);
+    int ret = fgetc_unlocked(fp);
+    pthread_mutex_unlock(&fp->in.mutex);
+    return ret;
+}
+
+static inline size_t fread_unlocked(void *buffer, size_t size, size_t count, FILE *fp) {
+    char *buf = (char*)buffer;
+    size_t total = size * count;
+    size_t read = 0;
+    while (read < total) {
+        int c = fgetc_unlocked(fp);
+        if (c == EOF) break;
+        buf[read++] = c;
+    }
+    return read;
+}
+
+size_t fread(void *buffer, size_t size, size_t count, FILE *fp) {
+    pthread_mutex_lock(&fp->in.mutex);
+    size_t ret = fread_unlocked(buffer, size, count, fp);
+    pthread_mutex_unlock(&fp->in.mutex);
+    return ret;
+}
+
+int putchar(int ch) {
+    return fputc(ch, stdout);
+}
+
+int getchar(void) {
+    return fgetc(stdin);
 }
