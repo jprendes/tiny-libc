@@ -117,9 +117,9 @@ static inline size_t fgetbuf_unlocked(char *buf, size_t n, FILE *fp) {
 int fputc(int c, FILE *fp) {
     pthread_mutex_lock(&fp->out.mutex);
     char cc = (char)c;
-    if (fputbuf_unlocked(&cc, 1, fp) == 0) return EOF;
+    size_t n = fputbuf_unlocked(&cc, 1, fp);;
     pthread_mutex_unlock(&fp->out.mutex);
-    return (uint8_t)cc;
+    return n == 0 ? EOF : (uint8_t)cc;
 }
 
 static inline int fputs_unlocked(const char *s, FILE * fp) {
@@ -205,21 +205,15 @@ static inline int fgetc_unlocked(FILE* fp) {
 
 int fgetc(FILE* fp) {
     pthread_mutex_lock(&fp->in.mutex);
-    int ret = fgetc_unlocked(fp);
+    char c = 0;
+    size_t n = fgetbuf_unlocked(&c, 1, fp);
     pthread_mutex_unlock(&fp->in.mutex);
-    return ret;
+    return n == 0 ? EOF : (uint8_t)c;
 }
 
 static inline size_t fread_unlocked(void *buffer, size_t size, size_t count, FILE *fp) {
-    char *buf = (char*)buffer;
-    size_t total = size * count;
-    size_t read = 0;
-    while (read < total) {
-        int c = fgetc_unlocked(fp);
-        if (c == EOF) break;
-        buf[read++] = c;
-    }
-    return read;
+    size_t n = fgetbuf_unlocked(buffer, size * count, fp);
+    return n / size;
 }
 
 size_t fread(void *buffer, size_t size, size_t count, FILE *fp) {
