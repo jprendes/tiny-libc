@@ -14,7 +14,7 @@ int clock_gettime(clockid_t clk_id, struct timespec *tp) {
 int gettimeofday(struct timeval *tv, void *tz) {
     (void)tz;
     struct timespec tp;
-    clock_gettime(CLOCK_MONOTONIC, &tp);
+    clock_gettime(CLOCK_REALTIME, &tp);
     tv->tv_sec = tp.tv_sec;
     tv->tv_usec = tp.tv_nsec / 1000;
     return 0;

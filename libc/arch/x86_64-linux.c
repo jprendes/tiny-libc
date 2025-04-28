@@ -34,11 +34,11 @@ ssize_t __read(int fd, void *buf, size_t count) {
 }
 
 const uint64_t SYS_clock_gettime64 = 228;
-const uint64_t CLOCK_MONOTONIC = 1;
+const uint64_t CLOCK_REALTIME = 0;
 
 int128_t __unixtime_nsec(void) {
     int64_t ts[2];
-    syscall4(SYS_clock_gettime64, CLOCK_MONOTONIC, (int64_t)ts, 0, 0);
+    int64_t res = syscall4(SYS_clock_gettime64, CLOCK_REALTIME, (int64_t)ts, 0, 0);
     return (int128_t)ts[0] * 1000000000 + ts[1];
 }
 
