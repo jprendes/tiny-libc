@@ -9,12 +9,12 @@ static inline int __wait_abs(_Atomic uint32_t *uaddr, uint32_t val, const struct
         return __wait((uint32_t *)uaddr, val, 0);
     }
 
-    int64_t abstime_usec = (int64_t)abstime->tv_sec * 1000000 + (int64_t)abstime->tv_nsec / 1000;
-    int64_t reltime_usec = abstime_usec - __unixtime_usec();
+    int128_t abstime_nsec = (int64_t)abstime->tv_sec * 1000000000 + (int64_t)abstime->tv_nsec;
+    int128_t reltime_nsec = abstime_nsec - __unixtime_nsec();
 
-    if (reltime_usec <= 0) return ETIMEDOUT;
+    if (reltime_nsec <= 0) return ETIMEDOUT;
 
-    __wait((uint32_t *)uaddr, val, reltime_usec);
+    __wait((uint32_t *)uaddr, val, reltime_nsec);
 
     return 0;
 }

@@ -33,12 +33,13 @@ ssize_t __read(int fd, void *buf, size_t count) {
     return ret < 0 ? -1 : ret;
 }
 
-const uint64_t SYS_gettimeofday = 96;
+const uint64_t SYS_clock_gettime64 = 228;
+const uint64_t CLOCK_MONOTONIC = 1;
 
-int64_t __unixtime_usec(void) {
-    int64_t ts32[2];
-    syscall4(SYS_gettimeofday, (int64_t)ts32, 0, 0, 0);
-    return ts32[0] * 1000000 + ts32[1];
+int128_t __unixtime_nsec(void) {
+    int64_t ts[2];
+    syscall4(SYS_clock_gettime64, CLOCK_MONOTONIC, (int64_t)ts, 0, 0);
+    return (int128_t)ts[0] * 1000000000 + ts[1];
 }
 
 const uint64_t SYS_futex = 202;
@@ -46,12 +47,12 @@ const uint64_t FUTEX_WAIT = 0;
 const uint64_t FUTEX_WAKE = 1;
 const uint64_t FUTEX_PRIVATE = 128;
 
-int __wait(uint32_t *uaddr, uint32_t val, uint64_t timeout_usec) {
+int __wait(uint32_t *uaddr, uint32_t val, uint128_t timeout_nsec) {
     int64_t timeout[2] = {0, 0};
     int64_t *timeout_ptr = 0;
-    if (timeout_usec > 0) {
-        timeout[0] = timeout_usec / 1000000;
-        timeout[1] = 1000 * (timeout_usec % 1000000);
+    if (timeout_nsec > 0) {
+        timeout[0] = timeout_nsec / 1000000000;
+        timeout[1] = timeout_nsec % 1000000000;
         timeout_ptr = timeout;
     }
     syscall4(SYS_futex, (int64_t)uaddr, FUTEX_WAIT | FUTEX_PRIVATE, val, (int64_t)timeout_ptr);

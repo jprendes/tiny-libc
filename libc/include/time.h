@@ -18,8 +18,8 @@ struct timespec {
 
 typedef int clockid_t;
 
-#define CLOCK_MONOTONIC 0
-#define CLOCK_REALTIME 1
+#define CLOCK_REALTIME 0
+#define CLOCK_MONOTONIC 1
 
 int clock_gettime(clockid_t clk_id, struct timespec *tp);
 
