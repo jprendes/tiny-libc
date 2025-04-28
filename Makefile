@@ -32,8 +32,6 @@ build:
 	    -nostdlib \
 	    ${CFLAGS} \
 	    -fno-stack-protector \
-	    -Wno-shift-op-parentheses \
-	    -Wno-implicit-const-int-float-conversion \
 	    -o ./build/demo
 
 build-ng:
@@ -56,6 +54,4 @@ build-ng:
 	    -nostdlib \
 	    ${CFLAGS} \
 	    -fno-stack-protector \
-	    -Wno-shift-op-parentheses \
-	    -Wno-implicit-const-int-float-conversion \
 	    -o ./build/demo-ng
