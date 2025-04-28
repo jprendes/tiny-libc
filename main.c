@@ -7,7 +7,7 @@
 char *code;
 
 // evaluate the given raw javascript expression and return the result as a string
-int main() {
+int main(void) {
     JSRuntime *rt;
     JSContext *ctx;
     JSValue result;
