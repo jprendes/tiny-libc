@@ -4,3 +4,6 @@
 [submodule "upstream/quickjs-ng"]
 	path = upstream/quickjs-ng
 	url = https://github.com/quickjs-ng/quickjs.git
+[submodule "upstream/rquickjs"]
+	path = upstream/rquickjs
+	url = https://github.com/jprendes/rquickjs.git

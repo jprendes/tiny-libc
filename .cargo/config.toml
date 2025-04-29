@@ -1,0 +1,8 @@
+[build]
+rustflags = [
+    "-Crelocation-model=static",
+]
+
+[env]
+BINDGEN_EXTRA_CLANG_ARGS="-I../../../libc/include -mstack-protector-guard=global"
+CFLAGS="-I../../../libc/include -mstack-protector-guard=global"

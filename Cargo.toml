@@ -6,11 +6,16 @@ members = [
     "crates/tiny-libc",
     "crates/demo",
 ]
+exclude = [
+    "upstream/rquickjs"
+]
 
 [workspace.dependencies]
 tiny-libc = { path = "crates/tiny-libc" }
 tiny-libc-build = { path = "crates/tiny-libc-build" }
 tiny-libc-macros = { path = "crates/tiny-libc-macros" }
+rquickjs-core = { path = "upstream/rquickjs/core", default-features = false }
+#rquickjs-sys = { path = "upstream/rquickjs/sys", default-features = false }
 
 [profile.release]
 panic = "abort"
